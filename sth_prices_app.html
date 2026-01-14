@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STH Prices</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-900: #1e1b4b;
+            --primary-800: #312e81;
+            --primary-700: #4338ca;
+            --primary-600: #4f46e5;
+            --primary-500: #6366f1;
+            --primary-400: #818cf8;
+            --primary-300: #a5b4fc;
+            --primary-200: #c7d2fe;
+            --gray-900: #0f172a;
+            --gray-800: #1e293b;
+            --gray-700: #334155;
+            --gray-600: #475569;
+            --gray-500: #64748b;
+            --gray-400: #94a3b8;
+            --gray-300: #cbd5e1;
+            --gray-200: #e2e8f0;
+            --gray-100: #f1f5f9;
+            --success: #10b981;
+            --error: #ef4444;
+            --gold: #fbbf24;
+            --silver: #94a3b8;
+            --copper: #f97316;
+            --zinc: #3b82f6;
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--primary-900) 0%, var(--gray-900) 50%, var(--primary-800) 100%);
+            min-height: 100vh;
+            color: var(--gray-100);
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        header { text-align: center; margin-bottom: 3rem; animation: fadeInDown 0.6s ease-out; }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .logo { display: inline-flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .logo-icon {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
+            border-radius: 16px; display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-lg), 0 0 40px rgba(99, 102, 241, 0.3);
+        }
+        .logo-icon svg { width: 32px; height: 32px; fill: white; }
+        h1 {
+            font-size: 2.5rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-200) 0%, white 50%, var(--primary-300) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: var(--gray-400); font-size: 1.1rem; margin-top: 0.5rem; }
+        .card {
+            background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px);
+            border-radius: 20px; border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 2rem; margin-bottom: 2rem; box-shadow: var(--shadow-xl);
+            animation: fadeInUp 0.6s ease-out; animation-fill-mode: both;
+        }
+        .card:nth-child(2) { animation-delay: 0.1s; }
+        .card:nth-child(3) { animation-delay: 0.2s; }
+        .card-header {
+            display: flex; align-items: center; gap: 0.75rem;
+            margin-bottom: 1.5rem; padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        .card-header svg { width: 24px; height: 24px; fill: var(--primary-400); }
+        .card-title { font-size: 1.25rem; font-weight: 600; color: white; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        label { font-size: 0.875rem; font-weight: 500; color: var(--gray-300); display: flex; align-items: center; gap: 0.5rem; }
+        label svg { width: 16px; height: 16px; fill: var(--primary-400); }
+        input[type="date"] {
+            font-family: 'JetBrains Mono', monospace; font-size: 1rem;
+            padding: 0.875rem 1rem; background: var(--gray-800);
+            border: 2px solid var(--gray-700); border-radius: 12px;
+            color: white; transition: all 0.2s ease; outline: none;
+        }
+        input[type="date"]:hover { border-color: var(--gray-600); }
+        input[type="date"]:focus { border-color: var(--primary-500); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        .btn {
+            font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; font-weight: 600;
+            padding: 1rem 2rem; border: none; border-radius: 12px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.75rem;
+            transition: all 0.2s ease; text-decoration: none;
+        }
+        .btn svg { width: 20px; height: 20px; fill: currentColor; }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+            color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lg), 0 0 30px rgba(79, 70, 229, 0.4); }
+        .btn-success {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 0 20px rgba(5, 150, 105, 0.3);
+        }
+        .btn-success:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-actions { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+        .status { padding: 1rem 1.5rem; border-radius: 12px; display: flex; align-items: center; gap: 0.75rem; font-weight: 500; margin-top: 1.5rem; }
+        .status svg { width: 20px; height: 20px; flex-shrink: 0; }
+        .status-loading { background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--primary-300); }
+        .status-loading svg { animation: spin 1s linear infinite; fill: var(--primary-400); }
+        .status-success { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); }
+        .status-success svg { fill: var(--success); }
+        .status-error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
+        .status-error svg { fill: var(--error); }
+        .hidden { display: none !important; }
+        .results-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .summary-item { background: var(--gray-800); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid var(--gray-700); }
+        .summary-value { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: white; }
+        .summary-label { font-size: 0.7rem; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        .table-container { overflow-x: auto; border-radius: 12px; border: 1px solid var(--gray-700); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        th, td { padding: 1rem; text-align: center; border-bottom: 1px solid var(--gray-700); }
+        th { background: var(--gray-800); font-weight: 600; color: var(--gray-200); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; position: sticky; top: 0; }
+        tr:hover td { background: rgba(99, 102, 241, 0.05); }
+        td { font-family: 'JetBrains Mono', monospace; color: var(--gray-300); }
+        .metal-gold { color: var(--gold); }
+        .metal-silver { color: var(--silver); }
+        .metal-copper { color: var(--copper); }
+        .metal-lead { color: var(--gray-400); }
+        .metal-zinc { color: var(--zinc); }
+        .progress-bar { height: 4px; background: var(--gray-700); border-radius: 2px; overflow: hidden; margin-top: 1rem; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary-600) 0%, var(--primary-400) 100%); border-radius: 2px; transition: width 0.3s ease; }
+        .info-text { font-size: 0.875rem; color: var(--gray-400); margin-top: 0.5rem; }
+        footer { text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.875rem; }
+        @media (max-width: 640px) {
+            .container { padding: 1rem; }
+            h1 { font-size: 1.75rem; }
+            .card { padding: 1.5rem; }
+            .btn-actions { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </div>
+                <h1>STH Prices</h1>
+            </div>
+            <p class="subtitle">Extracción automática de precios de metales</p>
+        </header>
+        
+        <div class="card">
+            <div class="card-header">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+                <h2 class="card-title">Seleccionar Rango de Fechas</h2>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="fecha_inicio">
+                        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        Fecha Inicio
+                    </label>
+                    <input type="date" id="fecha_inicio" required>
+                </div>
+                <div class="form-group">
+                    <label for="fecha_fin">
+                        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        Fecha Fin
+                    </label>
+                    <input type="date" id="fecha_fin" required>
+                </div>
+            </div>
+            
+            <p class="info-text">📊 Los precios incluyen Oro PM, Plata, Cobre, Plomo y Zinc.</p>
+            
+            <div class="btn-actions">
+                <button class="btn btn-primary" id="btn-extract" onclick="extractPrices()">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2"/></svg>
+                    Extraer Precios
+                </button>
+                <button class="btn btn-success" id="btn-download" onclick="downloadExcel()" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/></svg>
+                    Descargar Excel
+                </button>
+            </div>
+            
+            <div id="status-loading" class="status status-loading hidden">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="31.416" stroke-dashoffset="10"/></svg>
+                <span id="loading-text">Extrayendo precios...</span>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
+            </div>
+            
+            <div id="status-success" class="status status-success hidden">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span id="success-text">Extracción completada</span>
+            </div>
+            
+            <div id="status-error" class="status status-error hidden">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/></svg>
+                <span id="error-text">Error</span>
+            </div>
+        </div>
+        
+        <div class="card hidden" id="results-card">
+            <div class="card-header">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="2"/><line x1="9" y1="21" x2="9" y2="9" stroke="currentColor" stroke-width="2"/></svg>
+                <h2 class="card-title">Resultados</h2>
+            </div>
+            
+            <div class="results-summary" id="results-summary"></div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Oro PM (USD/oz)</th>
+                            <th>Plata (USD/oz)</th>
+                            <th>Cobre (USD/lb)</th>
+                            <th>Plomo (USD/lb)</th>
+                            <th>Zinc (USD/lb)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+            </div>
+            <p class="info-text" id="results-info"></p>
+        </div>
+        
+        <footer>
+            <p>Creado por Arturo Lavin</p>
+            <p style="margin-top: 0.5rem;">© 2026 STH Prices</p>
+        </footer>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8080';
+        let extractedData = null;
+        
+        // Fechas por defecto: día 1 del mes actual hasta ayer
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            document.getElementById('fecha_fin').value = formatDate(yesterday);
+            document.getElementById('fecha_inicio').value = formatDate(firstDayOfMonth);
+        });
+        
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+        
+        function showStatus(type) {
+            document.getElementById('status-loading').classList.add('hidden');
+            document.getElementById('status-success').classList.add('hidden');
+            document.getElementById('status-error').classList.add('hidden');
+            if (type) document.getElementById(`status-${type}`).classList.remove('hidden');
+        }
+        
+        function updateProgress(percent) {
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+        }
+        
+        function formatPrice(value) {
+            if (value === null || value === undefined) return '<span style="color: var(--gray-500)">N/A</span>';
+            return parseFloat(value).toFixed(4);
+        }
+        
+        function calcAverage(arr) {
+            const valid = arr.filter(v => v !== null && v !== undefined);
+            if (valid.length === 0) return null;
+            return valid.reduce((a, b) => a + b, 0) / valid.length;
+        }
+        
+        async function extractPrices() {
+            const fechaInicio = document.getElementById('fecha_inicio').value;
+            const fechaFin = document.getElementById('fecha_fin').value;
+            
+            if (!fechaInicio || !fechaFin) {
+                showStatus('error');
+                document.getElementById('error-text').textContent = 'Por favor selecciona ambas fechas';
+                return;
+            }
+            
+            if (new Date(fechaInicio) > new Date(fechaFin)) {
+                showStatus('error');
+                document.getElementById('error-text').textContent = 'La fecha de inicio debe ser menor o igual a la fecha fin';
+                return;
+            }
+            
+            showStatus('loading');
+            document.getElementById('loading-text').textContent = 'Extrayendo precios...';
+            document.getElementById('btn-extract').disabled = true;
+            document.getElementById('btn-download').disabled = true;
+            document.getElementById('results-card').classList.add('hidden');
+            updateProgress(10);
+            
+            try {
+                const response = await fetch(`${API_URL}/extract_prices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fecha_inicio: fechaInicio, fecha_fin: fechaFin })
+                });
+                
+                updateProgress(80);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error en el servidor');
+                }
+                
+                const data = await response.json();
+                updateProgress(100);
+                
+                if (data.status === 'ok' && data.datos) {
+                    extractedData = data.datos;
+                    displayResults(data);
+                    showStatus('success');
+                    document.getElementById('success-text').textContent = `✓ ${data.total_fechas} fechas procesadas`;
+                    document.getElementById('btn-download').disabled = false;
+                } else {
+                    throw new Error('Respuesta inválida del servidor');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('error');
+                document.getElementById('error-text').textContent = error.message.includes('fetch') 
+                    ? 'No se puede conectar al servidor (puerto 8080)' : error.message;
+            } finally {
+                document.getElementById('btn-extract').disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            const resultsBody = document.getElementById('results-body');
+            const resultsSummary = document.getElementById('results-summary');
+            const resultsInfo = document.getElementById('results-info');
+            
+            resultsBody.innerHTML = '';
+            
+            const avgOro = calcAverage(data.datos.map(r => r.oro_pm));
+            const avgPlata = calcAverage(data.datos.map(r => r.plata));
+            const avgCobre = calcAverage(data.datos.map(r => r.cobre));
+            const avgPlomo = calcAverage(data.datos.map(r => r.plomo));
+            const avgZinc = calcAverage(data.datos.map(r => r.zinc));
+            
+            resultsSummary.innerHTML = `
+                <div class="summary-item">
+                    <div class="summary-value metal-gold">${avgOro ? '$' + avgOro.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Oro PM Prom</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-silver">${avgPlata ? '$' + avgPlata.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Plata Prom</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-copper">${avgCobre ? '$' + avgCobre.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Cobre Prom</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-lead">${avgPlomo ? '$' + avgPlomo.toFixed(4) : 'N/A'}</div>
+                    <div class="summary-label">Plomo Prom</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-zinc">${avgZinc ? '$' + avgZinc.toFixed(4) : 'N/A'}</div>
+                    <div class="summary-label">Zinc Prom</div>
+                </div>
+            `;
+            
+            const maxRows = Math.min(data.datos.length, 10);
+            for (let i = 0; i < maxRows; i++) {
+                const row = data.datos[i];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.fecha}</td>
+                    <td class="metal-gold">${formatPrice(row.oro_pm)}</td>
+                    <td class="metal-silver">${formatPrice(row.plata)}</td>
+                    <td class="metal-copper">${formatPrice(row.cobre)}</td>
+                    <td class="metal-lead">${formatPrice(row.plomo)}</td>
+                    <td class="metal-zinc">${formatPrice(row.zinc)}</td>
+                `;
+                resultsBody.appendChild(tr);
+            }
+            
+            resultsInfo.textContent = data.datos.length > 10 
+                ? `Mostrando 10 de ${data.datos.length} registros. Descarga el Excel para ver todos.`
+                : `Mostrando ${data.datos.length} registros.`;
+            
+            document.getElementById('results-card').classList.remove('hidden');
+        }
+        
+        async function downloadExcel() {
+            if (!extractedData || extractedData.length === 0) {
+                showStatus('error');
+                document.getElementById('error-text').textContent = 'No hay datos para descargar';
+                return;
+            }
+            
+            document.getElementById('btn-download').disabled = true;
+            showStatus('loading');
+            document.getElementById('loading-text').textContent = 'Generando Excel...';
+            
+            try {
+                const response = await fetch(`${API_URL}/generate_excel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ datos: extractedData })
+                });
+                
+                if (!response.ok) throw new Error('Error generando Excel');
+                
+                const blob = await response.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `sth_prices_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
+                a.click();
+                
+                showStatus('success');
+                document.getElementById('success-text').textContent = '✓ Excel descargado';
+            } catch (error) {
+                showStatus('error');
+                document.getElementById('error-text').textContent = error.message;
+            } finally {
+                document.getElementById('btn-download').disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
