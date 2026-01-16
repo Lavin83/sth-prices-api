@@ -249,7 +249,7 @@
     </div>
     
     <script>
-        const API_URL = 'http://localhost:8080';
+        const API_URL = 'https://sth-prices-api.onrender.com';
         let extractedData = null;
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -341,7 +341,7 @@
                 console.error('Error:', error);
                 showStatus('error');
                 document.getElementById('error-text').textContent = error.message.includes('fetch') 
-                    ? 'No se puede conectar al servidor (puerto 8080)' : error.message;
+                    ? 'No se puede conectar al servidor' : error.message;
             } finally {
                 document.getElementById('btn-extract').disabled = false;
             }
