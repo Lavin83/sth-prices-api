@@ -29,6 +29,8 @@
             --success: #10b981;
             --error: #ef4444;
             --gold: #fbbf24;
+            --gold-light: #fcd34d;
+            --gold-avg: #f59e0b;
             --silver: #94a3b8;
             --copper: #f97316;
             --zinc: #3b82f6;
@@ -43,7 +45,7 @@
             color: var(--gray-100);
             line-height: 1.6;
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
         header { text-align: center; margin-bottom: 3rem; animation: fadeInDown 0.6s ease-out; }
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -118,17 +120,19 @@
         .status-error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
         .status-error svg { fill: var(--error); }
         .hidden { display: none !important; }
-        .results-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .summary-item { background: var(--gray-800); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid var(--gray-700); }
-        .summary-value { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: white; }
-        .summary-label { font-size: 0.7rem; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        .results-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+        .summary-item { background: var(--gray-800); padding: 0.875rem; border-radius: 12px; text-align: center; border: 1px solid var(--gray-700); }
+        .summary-value { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; color: white; }
+        .summary-label { font-size: 0.6rem; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
         .table-container { overflow-x: auto; border-radius: 12px; border: 1px solid var(--gray-700); }
-        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-        th, td { padding: 1rem; text-align: center; border-bottom: 1px solid var(--gray-700); }
-        th { background: var(--gray-800); font-weight: 600; color: var(--gray-200); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; position: sticky; top: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-700); }
+        th { background: var(--gray-800); font-weight: 600; color: var(--gray-200); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; position: sticky; top: 0; }
         tr:hover td { background: rgba(99, 102, 241, 0.05); }
         td { font-family: 'JetBrains Mono', monospace; color: var(--gray-300); }
         .metal-gold { color: var(--gold); }
+        .metal-gold-light { color: var(--gold-light); }
+        .metal-gold-avg { color: var(--gold-avg); }
         .metal-silver { color: var(--silver); }
         .metal-copper { color: var(--copper); }
         .metal-lead { color: var(--gray-400); }
@@ -181,7 +185,7 @@
                 </div>
             </div>
             
-            <p class="info-text">📊 Los precios incluyen Oro PM, Plata, Cobre, Plomo y Zinc.</p>
+            <p class="info-text">📊 Los precios incluyen Oro AM, Oro PM, Plata, Cobre, Plomo y Zinc.</p>
             
             <div class="btn-actions">
                 <button class="btn btn-primary" id="btn-extract" onclick="extractPrices()">
@@ -224,11 +228,12 @@
                     <thead>
                         <tr>
                             <th>Fecha</th>
-                            <th>Oro PM (USD/oz)</th>
-                            <th>Plata (USD/oz)</th>
-                            <th>Cobre (USD/lb)</th>
-                            <th>Plomo (USD/lb)</th>
-                            <th>Zinc (USD/lb)</th>
+                            <th>Oro AM</th>
+                            <th>Oro PM</th>
+                            <th>Plata</th>
+                            <th>Cobre</th>
+                            <th>Plomo</th>
+                            <th>Zinc</th>
                         </tr>
                     </thead>
                     <tbody id="results-body"></tbody>
@@ -244,10 +249,9 @@
     </div>
     
     <script>
-        const API_URL = 'https://sth-prices-api.onrender.com';
+        const API_URL = 'http://localhost:8080';
         let extractedData = null;
         
-        // Fechas por defecto: día 1 del mes actual hasta ayer
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date();
             const yesterday = new Date(today);
@@ -275,7 +279,7 @@
         
         function formatPrice(value) {
             if (value === null || value === undefined) return '<span style="color: var(--gray-500)">N/A</span>';
-            return parseFloat(value).toFixed(4);
+            return parseFloat(value).toFixed(2);
         }
         
         function calcAverage(arr) {
@@ -350,32 +354,44 @@
             
             resultsBody.innerHTML = '';
             
-            const avgOro = calcAverage(data.datos.map(r => r.oro_pm));
+            const avgOroAm = calcAverage(data.datos.map(r => r.oro_am));
+            const avgOroPm = calcAverage(data.datos.map(r => r.oro_pm));
             const avgPlata = calcAverage(data.datos.map(r => r.plata));
             const avgCobre = calcAverage(data.datos.map(r => r.cobre));
             const avgPlomo = calcAverage(data.datos.map(r => r.plomo));
             const avgZinc = calcAverage(data.datos.map(r => r.zinc));
             
+            // Calcular promedio entre AM y PM
+            const avgOroAmPm = (avgOroAm !== null && avgOroPm !== null) ? (avgOroAm + avgOroPm) / 2 : null;
+            
             resultsSummary.innerHTML = `
                 <div class="summary-item">
-                    <div class="summary-value metal-gold">${avgOro ? '$' + avgOro.toFixed(2) : 'N/A'}</div>
-                    <div class="summary-label">Oro PM Prom</div>
+                    <div class="summary-value metal-gold-light">${avgOroAm ? '$' + avgOroAm.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Oro AM</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-gold">${avgOroPm ? '$' + avgOroPm.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Oro PM</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value metal-gold-avg">${avgOroAmPm ? '$' + avgOroAmPm.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Oro Prom</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-value metal-silver">${avgPlata ? '$' + avgPlata.toFixed(2) : 'N/A'}</div>
-                    <div class="summary-label">Plata Prom</div>
+                    <div class="summary-label">Plata</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-value metal-copper">${avgCobre ? '$' + avgCobre.toFixed(2) : 'N/A'}</div>
-                    <div class="summary-label">Cobre Prom</div>
+                    <div class="summary-label">Cobre</div>
                 </div>
                 <div class="summary-item">
-                    <div class="summary-value metal-lead">${avgPlomo ? '$' + avgPlomo.toFixed(4) : 'N/A'}</div>
-                    <div class="summary-label">Plomo Prom</div>
+                    <div class="summary-value metal-lead">${avgPlomo ? '$' + avgPlomo.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Plomo</div>
                 </div>
                 <div class="summary-item">
-                    <div class="summary-value metal-zinc">${avgZinc ? '$' + avgZinc.toFixed(4) : 'N/A'}</div>
-                    <div class="summary-label">Zinc Prom</div>
+                    <div class="summary-value metal-zinc">${avgZinc ? '$' + avgZinc.toFixed(2) : 'N/A'}</div>
+                    <div class="summary-label">Zinc</div>
                 </div>
             `;
             
@@ -385,6 +401,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${row.fecha}</td>
+                    <td class="metal-gold-light">${formatPrice(row.oro_am)}</td>
                     <td class="metal-gold">${formatPrice(row.oro_pm)}</td>
                     <td class="metal-silver">${formatPrice(row.plata)}</td>
                     <td class="metal-copper">${formatPrice(row.cobre)}</td>
