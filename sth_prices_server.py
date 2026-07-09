@@ -31,6 +31,16 @@ TRANSAMINE_URL = "https://www.transamine.com/price-and-review.html"
 REQUEST_TIMEOUT = 30
 PAUSE_BETWEEN_MONTHS = 1
 
+# Feeds JSON públicos de LBMA (fuente de RESPALDO para Au/Ag).
+# Solo se consultan cuando Transamine devuelve nulls en oro/plata.
+# Cada registro: {"d": "YYYY-MM-DD", "v": [USD, GBP, EUR]}
+LBMA_FEEDS = {
+    'oro_am': 'https://prices.lbma.org.uk/json/gold_am.json',
+    'oro_pm': 'https://prices.lbma.org.uk/json/gold_pm.json',
+    'plata': 'https://prices.lbma.org.uk/json/silver.json',
+}
+LBMA_TIMEOUT = 30
+
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -207,12 +217,90 @@ def extract_month_prices(session, year_month):
         return month_data, averages
 
 
+def fetch_lbma_backup(start_str, end_str):
+    """
+    Descarga los fixes LBMA (Au AM/PM y Ag, en USD) para el rango de fechas.
+    Devuelve dict {fecha: {'oro_am': x, 'oro_pm': y, 'plata': z}}.
+    Es fuente de RESPALDO: solo se llama si Transamine trae nulls.
+    Si un feed falla, se omite ese campo sin tumbar la respuesta.
+    """
+    backup = {}
+    for field, url in LBMA_FEEDS.items():
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=LBMA_TIMEOUT)
+            resp.raise_for_status()
+            for record in resp.json():
+                d = record.get('d')
+                if not d or d < start_str or d > end_str:
+                    continue
+                v = record.get('v') or []
+                usd = v[0] if len(v) >= 1 else None
+                if usd in (None, 0):
+                    continue
+                backup.setdefault(d, {})[field] = float(usd)
+            print(f"  LBMA respaldo: {field} OK")
+        except Exception as e:
+            print(f"  LBMA respaldo: error en {field}: {e}")
+    return backup
+
+
+def fill_missing_precious(results, averages_by_month, start_str, end_str):
+    """
+    Rellena con LBMA únicamente los campos oro_am, oro_pm y plata que
+    Transamine haya dejado en None. No sobreescribe valores existentes.
+    Recalcula promedios mensuales de preciosos si venían vacíos.
+    Devuelve la fuente efectiva de preciosos: 'transamine', 'lbma_respaldo' o 'mixto'.
+    """
+    precious_fields = ['oro_am', 'oro_pm', 'plata']
+
+    missing = any(
+        row.get(f) is None for row in results for f in precious_fields
+    )
+    if not results or not missing:
+        return 'transamine'
+
+    backup = fetch_lbma_backup(start_str, end_str)
+    if not backup:
+        return 'transamine'
+
+    filled_any = False
+    kept_any = False
+    for row in results:
+        fecha = row.get('fecha')
+        for f in precious_fields:
+            if row.get(f) is not None:
+                kept_any = True
+            elif fecha in backup and backup[fecha].get(f) is not None:
+                row[f] = backup[fecha][f]
+                filled_any = True
+
+    if filled_any:
+        # Recalcular promedios mensuales de preciosos que vengan vacíos
+        for month, avgs in averages_by_month.items():
+            for f in precious_fields:
+                if avgs.get(f) is None:
+                    vals = [
+                        row[f] for row in results
+                        if row.get(f) is not None
+                        and str(row.get('fecha', '')).startswith(month)
+                    ]
+                    if vals:
+                        avgs[f] = round(sum(vals) / len(vals), 2)
+            # oro_mean = promedio de AM y PM si ambos existen
+            if avgs.get('oro_mean') is None and avgs.get('oro_am') and avgs.get('oro_pm'):
+                avgs['oro_mean'] = round((avgs['oro_am'] + avgs['oro_pm']) / 2, 2)
+
+    if not filled_any:
+        return 'transamine'
+    return 'mixto' if kept_any else 'lbma_respaldo'
+
+
 @app.route('/')
 def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '3.0.0',
+        'version': '3.1.0',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/extract_prices': 'POST - Extraer precios (fecha_inicio, fecha_fin)',
@@ -272,14 +360,22 @@ def extract_prices():
                 results.append(all_prices[date_str])
             current_date += timedelta(days=1)
         
+        # Respaldo LBMA: rellena Au AM/PM y Ag solo donde Transamine dejó nulls
+        fuente_preciosos = fill_missing_precious(
+            results, all_averages,
+            start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+        )
+        
         clean_results = clean_dict(results)
         
-        print(f"Extracción completada: {len(clean_results)} fechas con datos")
+        print(f"Extracción completada: {len(clean_results)} fechas con datos "
+              f"(preciosos: {fuente_preciosos})")
         
         return jsonify({
             'status': 'ok',
             'total_fechas': len(clean_results),
             'meses_descargados': len(months),
+            'fuente_preciosos': fuente_preciosos,
             'promedios': clean_dict(all_averages),
             'datos': clean_results
         })
