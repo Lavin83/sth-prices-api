@@ -31,7 +31,7 @@ TRANSAMINE_URL = "https://www.transamine.com/price-and-review.html"
 REQUEST_TIMEOUT = 30
 PAUSE_BETWEEN_MONTHS = 1
 
-# Feeds JSON públicos de LBMA (fuente de RESPALDO para Au/Ag).
+# Feeds JSON p√∫blicos de LBMA (fuente de RESPALDO para Au/Ag).
 # Solo se consultan cuando Transamine devuelve nulls en oro/plata.
 # Cada registro: {"d": "YYYY-MM-DD", "v": [USD, GBP, EUR]}
 LBMA_FEEDS = {
@@ -40,6 +40,23 @@ LBMA_FEEDS = {
     'plata': 'https://prices.lbma.org.uk/json/silver.json',
 }
 LBMA_TIMEOUT = 30
+
+# Tablas publicas de Westmetall (fuente de RESPALDO para metales BASE).
+# Republican el LME Cash-Settlement oficial diario ‚Äî validado identico a
+# Transamine (Pb 10-jul-2026: 1851 en ambos). Cubren el anio en curso.
+# Solo se consultan cuando Transamine deja nulls en metales base.
+WESTMETALL_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field={field}"
+WESTMETALL_FIELDS = {
+    'cobre': 'LME_Cu_cash',
+    'plomo': 'LME_Pb_cash',
+    'zinc': 'LME_Zn_cash',
+    'niquel': 'LME_Ni_cash',
+    'estano': 'LME_Sn_cash',
+}
+WESTMETALL_TIMEOUT = 30
+MONTHS_EN = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5,
+             'June': 6, 'July': 7, 'August': 8, 'September': 9,
+             'October': 10, 'November': 11, 'December': 12}
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -98,7 +115,7 @@ def get_months_in_range(start_date, end_date):
 def extract_month_prices(session, year_month):
     """
     Extrae precios de un mes desde Transamine.
-    La página usa spans con clases text_price, no tablas HTML.
+    La p√°gina usa spans con clases text_price, no tablas HTML.
     """
     url = f"{TRANSAMINE_URL}?choix_date={year_month}"
     month_data = {}
@@ -114,7 +131,7 @@ def extract_month_prices(session, year_month):
         table_listing = soup.find('div', id='table_listing')
         
         if not table_listing:
-            print(f"  No se encontró table_listing para {year_month}")
+            print(f"  No se encontr√≥ table_listing para {year_month}")
             return month_data, averages
         
         # Encontrar todas las secciones (h4 seguido de div)
@@ -152,7 +169,7 @@ def extract_month_prices(session, year_month):
                 if avg_span:
                     avg_values = avg_span.find_all('span')
                     if current_metal == 'oro' and len(avg_values) >= 3:
-                        # Oro tiene AM, MEAN, PM - tomamos PM (índice 2)
+                        # Oro tiene AM, MEAN, PM - tomamos PM (√≠ndice 2)
                         averages[f'{current_metal}_pm'] = parse_price(avg_values[2].get_text())
                         averages[f'{current_metal}_am'] = parse_price(avg_values[0].get_text())
                         averages[f'{current_metal}_mean'] = parse_price(avg_values[1].get_text())
@@ -171,6 +188,14 @@ def extract_month_prices(session, year_month):
                     
                     # Validar formato de fecha YYYY-MM-DD
                     if not re.match(r'\d{4}-\d{2}-\d{2}', date_text):
+                        continue
+
+                    # Descartar fechas de OTRO mes: cuando el feed de un metal
+                    # esta roto, Transamine muestra el bloque del mes anterior
+                    # (ej. Gold con fechas de junio en la pagina de julio) y esas
+                    # filas parciales pisarian las filas completas del mes
+                    # correcto en all_prices.update()
+                    if not date_text.startswith(year_month):
                         continue
                     
                     # Inicializar fecha si no existe
@@ -198,7 +223,7 @@ def extract_month_prices(session, year_month):
                         price_value = parse_price(value_spans[0].get_text())
                         month_data[date_text][current_metal] = price_value
         
-        print(f"  {year_month}: {len(month_data)} días extraídos")
+        print(f"  {year_month}: {len(month_data)} d√≠as extra√≠dos")
         if averages:
             print(f"  Promedios: {averages}")
         
@@ -208,7 +233,7 @@ def extract_month_prices(session, year_month):
         print(f"  Timeout para {year_month}")
         return month_data, averages
     except requests.exceptions.RequestException as e:
-        print(f"  Error de conexión para {year_month}: {e}")
+        print(f"  Error de conexi√≥n para {year_month}: {e}")
         return month_data, averages
     except Exception as e:
         print(f"  Error extrayendo precios para {year_month}: {e}")
@@ -246,9 +271,9 @@ def fetch_lbma_backup(start_str, end_str):
 
 def fill_missing_precious(results, averages_by_month, start_str, end_str):
     """
-    Rellena con LBMA únicamente los campos oro_am, oro_pm y plata que
+    Rellena con LBMA √∫nicamente los campos oro_am, oro_pm y plata que
     Transamine haya dejado en None. No sobreescribe valores existentes.
-    Recalcula promedios mensuales de preciosos si venían vacíos.
+    Recalcula promedios mensuales de preciosos si ven√≠an vac√≠os.
     Devuelve la fuente efectiva de preciosos: 'transamine', 'lbma_respaldo' o 'mixto'.
     """
     precious_fields = ['oro_am', 'oro_pm', 'plata']
@@ -257,7 +282,7 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
     missing_nulls = any(
         row.get(f) is None for row in results for f in precious_fields
     )
-    # Días hábiles (L-V) del rango que no aparecieron en Transamine
+    # D√≠as h√°biles (L-V) del rango que no aparecieron en Transamine
     missing_days = False
     day = datetime.strptime(start_str, '%Y-%m-%d')
     end_dt = datetime.strptime(end_str, '%Y-%m-%d')
@@ -286,7 +311,7 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
                 row[f] = backup[fecha][f]
                 filled_any = True
 
-    # Crear fechas que Transamine no publicó pero LBMA sí tiene
+    # Crear fechas que Transamine no public√≥ pero LBMA s√≠ tiene
     existing_dates = {row.get('fecha') for row in results}
     for fecha in sorted(backup.keys()):
         if fecha in existing_dates:
@@ -309,7 +334,7 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
     if filled_any:
         # Recalcular promedios mensuales de preciosos desde los datos diarios
         # ya completos (Transamine puede publicar promedios corruptos cuando
-        # su feed de preciosos está roto)
+        # su feed de preciosos est√° roto)
         for month, avgs in averages_by_month.items():
             for f in precious_fields:
                 vals = [
@@ -328,12 +353,130 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
     return 'mixto' if kept_any else 'lbma_respaldo'
 
 
+def fetch_westmetall_backup(start_str, end_str):
+    """
+    Descarga el LME Cash-Settlement diario desde las tablas publicas de
+    Westmetall para los metales base. Devuelve {fecha: {metal: valor}}.
+    Es fuente de RESPALDO: solo se llama si Transamine trae nulls en base.
+    Si una tabla falla, se omite ese metal sin tumbar la respuesta.
+    """
+    backup = {}
+    for metal, field in WESTMETALL_FIELDS.items():
+        try:
+            url = WESTMETALL_URL.format(field=field)
+            resp = requests.get(url, headers=HEADERS, timeout=WESTMETALL_TIMEOUT)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, 'lxml')
+            n = 0
+            for tr in soup.find_all('tr'):
+                cells = [td.get_text().strip() for td in tr.find_all('td')]
+                if len(cells) < 2:
+                    continue
+                m = re.match(r'(\d{1,2})\.\s+([A-Za-z]+)\s+(\d{4})', cells[0])
+                if not m or m.group(2) not in MONTHS_EN:
+                    continue
+                fecha = "%04d-%02d-%02d" % (
+                    int(m.group(3)), MONTHS_EN[m.group(2)], int(m.group(1)))
+                if fecha < start_str or fecha > end_str:
+                    continue
+                value = parse_price(cells[1])  # columna Cash-Settlement
+                if value is None:
+                    continue
+                backup.setdefault(fecha, {})[metal] = value
+                n += 1
+            print(f"  Westmetall respaldo: {metal} OK ({n} fechas)")
+        except Exception as e:
+            print(f"  Westmetall respaldo: error en {metal}: {e}")
+    return backup
+
+
+def fill_missing_base(results, averages_by_month, start_str, end_str):
+    """
+    Rellena con Westmetall (LME Cash-Settlement) unicamente los campos de
+    metales base (cobre, plomo, zinc, niquel, estano) que Transamine haya
+    dejado en None. No sobreescribe valores existentes. Recalcula promedios
+    mensuales de base si rellenaron datos.
+    Devuelve la fuente efectiva: 'transamine', 'westmetall_respaldo' o 'mixto'.
+    """
+    base_fields = list(WESTMETALL_FIELDS.keys())
+
+    existing = {row.get('fecha') for row in results}
+    missing_nulls = any(
+        row.get(f) is None for row in results for f in base_fields
+    )
+    # Dias habiles (L-V) del rango que no aparecieron en Transamine
+    missing_days = False
+    day = datetime.strptime(start_str, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_str, '%Y-%m-%d')
+    while day <= end_dt:
+        ds = day.strftime('%Y-%m-%d')
+        if day.weekday() < 5 and ds not in existing:
+            missing_days = True
+            break
+        day += timedelta(days=1)
+
+    if not (missing_nulls or missing_days):
+        return 'transamine'
+
+    backup = fetch_westmetall_backup(start_str, end_str)
+    if not backup:
+        return 'transamine'
+
+    filled_any = False
+    kept_any = False
+    for row in results:
+        fecha = row.get('fecha')
+        for f in base_fields:
+            if row.get(f) is not None:
+                kept_any = True
+            elif fecha in backup and backup[fecha].get(f) is not None:
+                row[f] = backup[fecha][f]
+                filled_any = True
+
+    # Crear fechas que Transamine no publico pero Westmetall si tiene
+    existing_dates = {row.get('fecha') for row in results}
+    for fecha in sorted(backup.keys()):
+        if fecha in existing_dates:
+            continue
+        new_row = {
+            'fecha': fecha,
+            'oro_pm': None,
+            'oro_am': None,
+            'plata': None,
+            'cobre': backup[fecha].get('cobre'),
+            'plomo': backup[fecha].get('plomo'),
+            'zinc': backup[fecha].get('zinc'),
+            'niquel': backup[fecha].get('niquel'),
+            'estano': backup[fecha].get('estano')
+        }
+        results.append(new_row)
+        filled_any = True
+    results.sort(key=lambda r: r.get('fecha') or '')
+
+    if filled_any:
+        # Recalcular promedios mensuales de base desde los datos diarios
+        # ya completos
+        for month, avgs in averages_by_month.items():
+            for f in base_fields:
+                vals = [
+                    row[f] for row in results
+                    if row.get(f) is not None
+                    and str(row.get('fecha', '')).startswith(month)
+                ]
+                if vals:
+                    avgs[f] = round(sum(vals) / len(vals), 2)
+
+    if not filled_any:
+        return 'transamine'
+    return 'mixto' if kept_any else 'westmetall_respaldo'
+
+
 @app.route('/')
 def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '3.2.0',
+        'version': '3.3.0',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/extract_prices': 'POST - Extraer precios (fecha_inicio, fecha_fin)',
@@ -360,7 +503,7 @@ def extract_prices():
             start_date = datetime.strptime(fecha_inicio, '%Y-%m-%d')
             end_date = datetime.strptime(fecha_fin, '%Y-%m-%d')
         except ValueError:
-            return jsonify(clean_dict({'error': 'Formato de fecha inválido. Use YYYY-MM-DD'})), 400
+            return jsonify(clean_dict({'error': 'Formato de fecha inv√°lido. Use YYYY-MM-DD'})), 400
         
         if start_date > end_date:
             return jsonify(clean_dict({'error': 'fecha_inicio debe ser menor o igual a fecha_fin'})), 400
@@ -393,22 +536,30 @@ def extract_prices():
                 results.append(all_prices[date_str])
             current_date += timedelta(days=1)
         
-        # Respaldo LBMA: rellena Au AM/PM y Ag solo donde Transamine dejó nulls
+        # Respaldo LBMA: rellena Au AM/PM y Ag solo donde Transamine dej√≥ nulls
         fuente_preciosos = fill_missing_precious(
             results, all_averages,
             start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
         )
-        
+
+        # Respaldo Westmetall: rellena metales base (LME Cash-Settlement)
+        # solo donde Transamine dej√≥ nulls
+        fuente_base = fill_missing_base(
+            results, all_averages,
+            start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+        )
+
         clean_results = clean_dict(results)
-        
-        print(f"Extracción completada: {len(clean_results)} fechas con datos "
-              f"(preciosos: {fuente_preciosos})")
-        
+
+        print(f"Extracci√≥n completada: {len(clean_results)} fechas con datos "
+              f"(preciosos: {fuente_preciosos}, base: {fuente_base})")
+
         return jsonify({
             'status': 'ok',
             'total_fechas': len(clean_results),
             'meses_descargados': len(months),
             'fuente_preciosos': fuente_preciosos,
+            'fuente_base': fuente_base,
             'promedios': clean_dict(all_averages),
             'datos': clean_results
         })
@@ -443,8 +594,8 @@ def generate_excel():
             'cobre': 'Cobre (USD/MT)',
             'plomo': 'Plomo (USD/MT)',
             'zinc': 'Zinc (USD/MT)',
-            'niquel': 'Níquel (USD/MT)',
-            'estano': 'Estaño (USD/MT)'
+            'niquel': 'N√≠quel (USD/MT)',
+            'estano': 'Esta√±o (USD/MT)'
         }
         
         columns_to_use = [col for col in column_mapping.keys() if col in df.columns]
