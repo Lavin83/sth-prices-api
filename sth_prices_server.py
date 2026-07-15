@@ -253,10 +253,22 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
     """
     precious_fields = ['oro_am', 'oro_pm', 'plata']
 
-    missing = any(
+    existing = {row.get('fecha') for row in results}
+    missing_nulls = any(
         row.get(f) is None for row in results for f in precious_fields
     )
-    if not results or not missing:
+    # Días hábiles (L-V) del rango que no aparecieron en Transamine
+    missing_days = False
+    day = datetime.strptime(start_str, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_str, '%Y-%m-%d')
+    while day <= end_dt:
+        ds = day.strftime('%Y-%m-%d')
+        if day.weekday() < 5 and ds not in existing:
+            missing_days = True
+            break
+        day += timedelta(days=1)
+
+    if not (missing_nulls or missing_days):
         return 'transamine'
 
     backup = fetch_lbma_backup(start_str, end_str)
@@ -274,20 +286,41 @@ def fill_missing_precious(results, averages_by_month, start_str, end_str):
                 row[f] = backup[fecha][f]
                 filled_any = True
 
+    # Crear fechas que Transamine no publicó pero LBMA sí tiene
+    existing_dates = {row.get('fecha') for row in results}
+    for fecha in sorted(backup.keys()):
+        if fecha in existing_dates:
+            continue
+        new_row = {
+            'fecha': fecha,
+            'oro_pm': backup[fecha].get('oro_pm'),
+            'oro_am': backup[fecha].get('oro_am'),
+            'plata': backup[fecha].get('plata'),
+            'cobre': None,
+            'plomo': None,
+            'zinc': None,
+            'niquel': None,
+            'estano': None
+        }
+        results.append(new_row)
+        filled_any = True
+    results.sort(key=lambda r: r.get('fecha') or '')
+
     if filled_any:
-        # Recalcular promedios mensuales de preciosos que vengan vacíos
+        # Recalcular promedios mensuales de preciosos desde los datos diarios
+        # ya completos (Transamine puede publicar promedios corruptos cuando
+        # su feed de preciosos está roto)
         for month, avgs in averages_by_month.items():
             for f in precious_fields:
-                if avgs.get(f) is None:
-                    vals = [
-                        row[f] for row in results
-                        if row.get(f) is not None
-                        and str(row.get('fecha', '')).startswith(month)
-                    ]
-                    if vals:
-                        avgs[f] = round(sum(vals) / len(vals), 2)
+                vals = [
+                    row[f] for row in results
+                    if row.get(f) is not None
+                    and str(row.get('fecha', '')).startswith(month)
+                ]
+                if vals:
+                    avgs[f] = round(sum(vals) / len(vals), 2)
             # oro_mean = promedio de AM y PM si ambos existen
-            if avgs.get('oro_mean') is None and avgs.get('oro_am') and avgs.get('oro_pm'):
+            if avgs.get('oro_am') and avgs.get('oro_pm'):
                 avgs['oro_mean'] = round((avgs['oro_am'] + avgs['oro_pm']) / 2, 2)
 
     if not filled_any:
@@ -300,7 +333,7 @@ def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '3.1.0',
+        'version': '3.2.0',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/extract_prices': 'POST - Extraer precios (fecha_inicio, fecha_fin)',
