@@ -1,6 +1,6 @@
 # STH Prices
 
-Aplicación web para extraer automáticamente precios de metales (Oro PM, Plata, Cobre, Plomo y Zinc) desde [Transamine](https://www.transamine.com/price-and-review.html) y generar archivos Excel.
+Aplicación web para extraer precios diarios oficiales de metales (Oro AM/PM, Plata, Cobre, Plomo, Zinc, Níquel, Estaño) y generar archivos Excel. Fuentes (v4.0): LBMA para preciosos (con SGM y Westmetall de respaldo) y Westmetall (LME Cash-Settlement) para metales base; [Transamine](https://www.transamine.com/price-and-review.html) solo como último recurso, ya que dejó de actualizar en julio 2026.
 
 ## Requisitos Previos
 
