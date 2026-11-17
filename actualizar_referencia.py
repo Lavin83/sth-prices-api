@@ -132,6 +132,10 @@ def main(argv):
 
     nuevas = sorted(set(precios) - set(previo))
     cambios = sorted(f for f in previo if f in precios and precios[f] != previo[f])
+    quitadas = sorted(set(previo) - set(precios))
+    if previo and not nuevas and not cambios and not quitadas:
+        print(f'Sin cambios de precios ({len(precios)} fechas hasta {max(precios)}); no se reescribe ni se publica.')
+        return 0
     os.makedirs(os.path.dirname(SALIDA), exist_ok=True)
     datos = {
         'actualizado': datetime.now().strftime('%Y-%m-%d %H:%M'),
