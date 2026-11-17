@@ -201,3 +201,27 @@ Si encuentras problemas:
 ---
 
 **Puerto del servidor: 8080** (NO usar puerto 5000 en Mac)
+
+## v4.1.0 / filtro de atípicos por vecinos y alertas
+
+- El filtro de atípicos ya no compara contra la mediana de todo el rango (tiraba precios reales, p. ej. la plata del 19 al 30 de enero 2026 al pedir rangos largos). Ahora compara cada valor contra la mediana de sus días vecinos (5 antes y 5 después) sobre la tabla completa de la fuente.
+- `/extract_prices` regresa `hay_alertas` y `alertas` con los datos que NO se están considerando:
+  - `valor_descartado`: la fuente publicó el dato pero el filtro lo tiró (indica si otra fuente lo repuso o quedó vacío).
+  - `sin_precio`: la fecha existe pero uno o más metales quedaron vacíos y no entran al promedio.
+  - `dia_sin_datos`: día hábil del rango sin ningún precio (festivo o aún no publicado).
+- `/generate_excel` acepta `alertas` y las escribe en la hoja "Alertas". La página las muestra en un recuadro arriba de los resultados.
+
+## v4.2.0 / referencia de precios por correo y SD Bullion
+
+- **Referencia:** STH recibe por correo un Excel con el fixing LBMA (oro AM/PM, plata) y el LME cash (Cu, Pb, Zn, Sn) diario. Es confidencial y **no va en este repo**: `actualizar_referencia.py` lo lee en la Mac (cache de Spark o archivos indicados), extrae solo fecha y precio y escribe `data/referencia_precios.json` (en `.gitignore`). Por cada mes usa la versión más reciente del archivo y descarta fines de semana.
+- **El motor** carga la referencia de `REFERENCIA_URL` (variable de entorno; con `REFERENCIA_TOKEN` si es un repo privado de GitHub, se reutiliza 10 min) o, si no hay URL, del archivo local. Si una fuente en línea no coincide con la referencia, gana la referencia; si falta un dato, lo rellena. Todo sale en `alertas` (`corregido_con_referencia`, `rellenado_con_referencia`, `dias_desde_referencia`).
+- **SD Bullion:** para días posteriores a la referencia, sirve de tercera opinión de preciosos: rellena huecos (`rellenado_con_sdbullion`) y avisa si no coincide (`fuentes_no_coinciden`), sin corregir.
+- `/extract_prices` regresa además `referencia_hasta`.
+- Para usarla en Render: crear un repo **privado** con `referencia_precios.json`, poner en Render `REFERENCIA_URL` (raw del archivo) y `REFERENCIA_TOKEN` (token de solo lectura), y correr `STH_REFERENCIA_REPO=<clon local> python3 actualizar_referencia.py --publicar` cuando llegue un correo nuevo.
+
+## v4.3.0 / correcciones verificadas y orden de fuentes
+
+- Orden: LBMA (bloqueado desde servidores) / SGM + Westmetall, referencia (si está configurada), Transamine para huecos, **correcciones verificadas**, y SD Bullion para preciosos que sigan faltando.
+- `CORRECCIONES_VERIFICADAS`: valores puntuales de fixing donde las fuentes públicas traen errores, confirmados con dos fuentes independientes; `None` marca días sin fixing (PM del 24 y 31 de diciembre, media jornada en Londres). Se aplican siempre, también en Render sin referencia.
+- SD Bullion ya no crea días que ninguna otra fuente publicó (festivos de Londres) ni avisa en fechas verificadas; los rellenos se resumen en un aviso por metal.
+- Verificado contra la referencia privada: 2024-01-02 a 2026-11-09 sin diferencias en valores diarios ni en promedios mensuales (la referencia no trae plata de ene-2024 a mar-2025; esa plata viene solo de SD Bullion).
