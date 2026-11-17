@@ -225,3 +225,8 @@ Si encuentras problemas:
 - `CORRECCIONES_VERIFICADAS`: valores puntuales de fixing donde las fuentes públicas traen errores, confirmados con dos fuentes independientes; `None` marca días sin fixing (PM del 24 y 31 de diciembre, media jornada en Londres). Se aplican siempre, también en Render sin referencia.
 - SD Bullion ya no crea días que ninguna otra fuente publicó (festivos de Londres) ni avisa en fechas verificadas; los rellenos se resumen en un aviso por metal.
 - Verificado contra la referencia privada: 2024-01-02 a 2026-11-09 sin diferencias en valores diarios ni en promedios mensuales (la referencia no trae plata de ene-2024 a mar-2025; esa plata viene solo de SD Bullion).
+
+## v4.3.1 / solo avisos accionables
+
+- `alertas` (página y hoja "Alertas" del Excel) trae solo lo que requiere revisión: un metal sin precio en un día ya publicado, un valor descartado que nadie repuso o fuentes que no coinciden.
+- Lo informativo (festivos, días sin fixing, valores ya corregidos o rellenados) pasa a `notas`, que solo regresa el API para auditoría.

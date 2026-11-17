@@ -876,6 +876,33 @@ def _dia_siguiente(fecha_str):
     return (datetime.strptime(fecha_str, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
 
 
+# Avisos que NO requieren accion (v4.3.1): festivos, dias sin fixing,
+# valores ya corregidos o rellenados con otra fuente. Van en `notas` (para
+# auditoria) y no se muestran en la pagina ni en el Excel.
+AVISOS_INFORMATIVOS = {
+    'dia_sin_datos', 'sin_fixing', 'corregido_verificado',
+    'corregido_con_referencia', 'rellenado_con_referencia', 'dias_desde_referencia',
+    'rellenado_con_sdbullion', 'sdbullion_sin_mercado',
+}
+
+
+def separar_avisos(avisos):
+    """Devuelve (alertas, notas). Alerta = algo que el usuario debe revisar:
+    un dato que falta en un dia ya publicado, un valor descartado que nadie
+    repuso o fuentes que no coinciden."""
+    hoy = datetime.now().strftime('%Y-%m-%d')
+    alertas, notas = [], []
+    for a in avisos:
+        tipo = a.get('tipo')
+        informativo = (
+            tipo in AVISOS_INFORMATIVOS
+            or (tipo == 'valor_descartado' and a.get('valor_final') is not None)
+            or (tipo == 'sin_precio' and a.get('fecha', '') >= hoy)  # aun no publicado
+        )
+        (notas if informativo else alertas).append(a)
+    return alertas, notas
+
+
 def compute_averages(rows, months):
     """Promedios mensuales calculados desde las filas diarias DEL RANGO
     (mes en curso o rango parcial = promedio parcial)."""
@@ -936,7 +963,7 @@ def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '4.3.0',
+        'version': '4.3.1',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/diag': 'GET - Estatus de conectividad a cada fuente de precios',
@@ -1020,6 +1047,7 @@ def extract_prices():
         sin_fix = {(x['fecha'], x['campo']) for x in ajustes if x['tipo'] == 'sin_fixing'}
         alertas = build_alertas(rows, descartes, start_str, end_str, sin_fix) + ajustes
         alertas.sort(key=lambda x: x['fecha'])
+        alertas, notas = separar_avisos(alertas)
         for a in alertas:
             print(f"  ALERTA: {a['mensaje']}")
 
@@ -1036,6 +1064,7 @@ def extract_prices():
             'referencia_hasta': ref_hasta,
             'hay_alertas': bool(alertas),
             'alertas': clean_dict(alertas),
+            'notas': clean_dict(notas),
             'datos': clean_results
         })
         
@@ -1144,7 +1173,7 @@ def generate_excel():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("STH Prices API Server v4.3.0")
+    print("STH Prices API Server v4.3.1")
     print("=" * 50)
     print("Puerto: 8080")
     print("URL: http://localhost:8080")
