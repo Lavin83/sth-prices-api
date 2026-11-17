@@ -232,3 +232,9 @@ Si encuentras problemas:
 - Lo informativo (festivos, días sin fixing, valores ya corregidos o rellenados) pasa a `notas`, que solo regresa el API para auditoría.
 
 - v4.3.2: con la referencia activa, SD Bullion también rellena preciosos que la referencia no trae (plata ene-2024 a mar-2025), sin cuestionar sus valores.
+
+## v4.4.0 / maestro manual como respaldo
+
+- `MAESTRO_URL` (variable de entorno): CSV de la hoja "STH Precios - Maestro" (Google Sheets) que se llena a mano. Columnas Fecha (dd/mm/aaaa), Oro AM, Oro PM, Plata; el promedio AM/PM se ignora.
+- Papel de respaldo: rellena huecos y corrige a SGM, Westmetall y SD Bullion (`rellenado_con_maestro`, `corregido_con_maestro`, en notas). No cambia la referencia ni los valores verificados; si los contradice, alerta `maestro_no_coincide` para revisar la captura.
+- La referencia y el maestro aportan su precisión (plata a 3 decimales) aunque la cifra coincida dentro de tolerancia con SGM.

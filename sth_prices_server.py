@@ -702,6 +702,9 @@ def aplicar_referencia(rows, ref, start_str, end_str):
                     'mensaje': (f"{fecha} {nombre}: la fuente en línea dio {actual} y la referencia "
                                 f"{v}; se usó {v}"),
                 })
+            elif actual != v:
+                row[campo] = v   # misma cifra con mas precision (plata a 3 decimales)
+                usada.add(campo)
     if nuevas:
         ajustes.append({
             'tipo': 'dias_desde_referencia', 'fecha': nuevas[0], 'fechas': nuevas,
@@ -886,6 +889,7 @@ AVISOS_INFORMATIVOS = {
     'dia_sin_datos', 'sin_fixing', 'corregido_verificado',
     'corregido_con_referencia', 'rellenado_con_referencia', 'dias_desde_referencia',
     'rellenado_con_sdbullion', 'sdbullion_sin_mercado',
+    'rellenado_con_maestro', 'corregido_con_maestro',
 }
 
 
@@ -904,6 +908,130 @@ def separar_avisos(avisos):
         )
         (notas if informativo else alertas).append(a)
     return alertas, notas
+
+
+# ---------------------------------------------------------------------------
+# MAESTRO MANUAL (v4.4): hoja "STH Precios - Maestro" (Google Sheets) que
+# Arturo llena a mano desde otras fuentes. Se lee como CSV desde MAESTRO_URL.
+# Papel: RESPALDO. Rellena huecos y corrige a los republicadores (SGM,
+# Westmetall, SD Bullion), pero NO a la referencia ni a los valores
+# verificados: si contradice a la referencia, gana la referencia y sale alerta
+# para que se revise la captura. La columna de promedio AM/PM se ignora (es
+# un calculo derivado, no un fixing).
+# ---------------------------------------------------------------------------
+MAESTRO_TTL = 600
+_maestro_cache = {'t': 0.0, 'datos': None}
+_MAESTRO_COLUMNAS = {'oro am': 'oro_am', 'oro pm': 'oro_pm', 'plata': 'plata'}
+
+
+def _num_maestro(texto):
+    t = str(texto or '').strip().replace('$', '').replace(' ', '')
+    if not t:
+        return None
+    if ',' in t and '.' in t:
+        t = t.replace(',', '')          # 4,168.15
+    elif ',' in t:
+        t = t.replace(',', '.')         # 4168,15
+    try:
+        v = float(t)
+    except ValueError:
+        return None
+    return v if v > 0 else None
+
+
+def _fecha_maestro(texto):
+    t = str(texto or '').strip()
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y'):
+        try:
+            return datetime.strptime(t, fmt).strftime('%Y-%m-%d')
+        except ValueError:
+            pass
+    return None
+
+
+def cargar_maestro():
+    """Devuelve {fecha: {'oro_am','oro_pm','plata'}} desde MAESTRO_URL (CSV), o {}."""
+    import csv
+    import io
+    url = os.environ.get('MAESTRO_URL')
+    if not url:
+        return {}
+    if _maestro_cache['datos'] is not None and time.time() - _maestro_cache['t'] < MAESTRO_TTL:
+        return _maestro_cache['datos']
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        filas = list(csv.reader(io.StringIO(resp.content.decode('utf-8-sig'))))
+        enc = [c.strip().lower() for c in filas[0]]
+        cols = {}
+        for i, nombre in enumerate(enc):
+            if 'promedio' in nombre:
+                continue
+            for clave, campo in _MAESTRO_COLUMNAS.items():
+                if nombre.startswith(clave):
+                    cols[campo] = i
+        datos = {}
+        for f in filas[1:]:
+            fecha = _fecha_maestro(f[0] if f else '')
+            if not fecha:
+                continue
+            vals = {campo: _num_maestro(f[i]) for campo, i in cols.items() if i < len(f)}
+            vals = {k: v for k, v in vals.items() if v is not None}
+            if vals:
+                datos[fecha] = vals
+        _maestro_cache.update(t=time.time(), datos=datos)
+        print(f"  Maestro manual: {len(datos)} fechas")
+        return datos
+    except Exception as e:
+        print(f"  Maestro manual: error al leer: {e}")
+        return _maestro_cache['datos'] or {}
+
+
+def aplicar_maestro(rows, maestro, ref, start_str, end_str, verificados):
+    """Aplica el maestro manual como respaldo. Devuelve (ajustes, usado)."""
+    ajustes = []
+    usado = False
+    ref_precios = (ref or {}).get('precios', {})
+    for fecha, vals in sorted(maestro.items()):
+        if fecha < start_str or fecha > end_str:
+            continue
+        for campo, v in vals.items():
+            if (fecha, campo) in verificados:
+                continue
+            row = rows.setdefault(fecha, _fila_nueva(fecha))
+            actual = row.get(campo)
+            nombre = NOMBRES_CAMPO.get(campo, campo)
+            de_ref = ref_precios.get(fecha, {}).get(campo)
+            if de_ref is not None:
+                if abs(de_ref - v) > TOLERANCIA[campo]:
+                    ajustes.append({
+                        'tipo': 'maestro_no_coincide', 'fecha': fecha, 'campo': campo,
+                        'valor': v, 'valor_final': actual,
+                        'mensaje': (f"{fecha} {nombre}: el maestro dice {v} y la referencia {de_ref}; "
+                                    f"se usó {actual}. Revisar la captura del maestro"),
+                    })
+                continue
+            if actual is None:
+                row[campo] = v
+                usado = True
+                ajustes.append({
+                    'tipo': 'rellenado_con_maestro', 'fecha': fecha, 'campo': campo,
+                    'valor_final': v,
+                    'mensaje': f"{fecha} {nombre}: faltaba; se tomó {v} del maestro manual",
+                })
+            elif abs(actual - v) > TOLERANCIA[campo]:
+                row[campo] = v
+                usado = True
+                ajustes.append({
+                    'tipo': 'corregido_con_maestro', 'fecha': fecha, 'campo': campo,
+                    'valor': actual, 'valor_final': v,
+                    'mensaje': (f"{fecha} {nombre}: la fuente en línea dio {actual} y el maestro "
+                                f"{v}; se usó {v}"),
+                })
+            elif actual != v:
+                row[campo] = v   # misma cifra con mas precision (p. ej. plata a 3 decimales)
+                usado = True
+    return ajustes, usado
 
 
 def compute_averages(rows, months):
@@ -966,7 +1094,7 @@ def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '4.3.2',
+        'version': '4.4.0',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/diag': 'GET - Estatus de conectividad a cada fuente de precios',
@@ -1031,6 +1159,14 @@ def extract_prices():
         # 4) Valores verificados (siempre, aun sin referencia)
         a, verificados = aplicar_correcciones(rows, start_str, end_str)
         ajustes += a
+
+        # 4b) Maestro manual (Google Sheets) como respaldo de preciosos
+        maestro = cargar_maestro()
+        if maestro:
+            a, usado = aplicar_maestro(rows, maestro, ref, start_str, end_str, verificados)
+            ajustes += a
+            if usado:
+                fuentes_prec.add('maestro')
 
         # 5) SD Bullion para preciosos: en dias posteriores a la referencia
         #    rellena huecos y avisa si no coincide; en dias que la referencia
@@ -1179,7 +1315,7 @@ def generate_excel():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("STH Prices API Server v4.3.2")
+    print("STH Prices API Server v4.4.0")
     print("=" * 50)
     print("Puerto: 8080")
     print("URL: http://localhost:8080")
