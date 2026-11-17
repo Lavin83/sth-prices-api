@@ -230,3 +230,5 @@ Si encuentras problemas:
 
 - `alertas` (página y hoja "Alertas" del Excel) trae solo lo que requiere revisión: un metal sin precio en un día ya publicado, un valor descartado que nadie repuso o fuentes que no coinciden.
 - Lo informativo (festivos, días sin fixing, valores ya corregidos o rellenados) pasa a `notas`, que solo regresa el API para auditoría.
+
+- v4.3.2: con la referencia activa, SD Bullion también rellena preciosos que la referencia no trae (plata ene-2024 a mar-2025), sin cuestionar sus valores.

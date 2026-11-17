@@ -821,7 +821,8 @@ def fetch_sdbullion(start_str, end_str):
     return out
 
 
-def verificar_sdbullion(rows, desde_str, end_str, verificados=frozenset()):
+def verificar_sdbullion(rows, desde_str, end_str, verificados=frozenset(),
+                        solo_rellenar_hasta=None):
     """Tercera opinion para dias que la referencia aun no cubre: rellena
     huecos de preciosos y avisa si no coincide (nunca corrige)."""
     ajustes = []
@@ -845,6 +846,8 @@ def verificar_sdbullion(rows, desde_str, end_str, verificados=frozenset()):
                 row[campo] = v
                 usada = True
                 rellenos.setdefault(campo, []).append(fecha)
+            elif solo_rellenar_hasta and fecha <= solo_rellenar_hasta:
+                continue  # la referencia manda en sus fechas
             elif abs(actual - v) > TOLERANCIA[campo]:
                 ajustes.append({
                     'tipo': 'fuentes_no_coinciden', 'fecha': fecha, 'campo': campo,
@@ -963,7 +966,7 @@ def index():
     return jsonify({
         'status': 'ok',
         'message': 'STH Prices API',
-        'version': '4.3.1',
+        'version': '4.3.2',
         'endpoints': {
             '/': 'GET - Este mensaje',
             '/diag': 'GET - Estatus de conectividad a cada fuente de precios',
@@ -1029,11 +1032,14 @@ def extract_prices():
         a, verificados = aplicar_correcciones(rows, start_str, end_str)
         ajustes += a
 
-        # 5) SD Bullion para preciosos en dias que la referencia aun no trae:
-        #    rellena huecos de dias con mercado y avisa si no coincide
-        if not ref_hasta or end_str > ref_hasta:
-            desde = start_str if not ref_hasta else max(start_str, _dia_siguiente(ref_hasta))
-            a, usada = verificar_sdbullion(rows, desde, end_str, verificados)
+        # 5) SD Bullion para preciosos: en dias posteriores a la referencia
+        #    rellena huecos y avisa si no coincide; en dias que la referencia
+        #    cubre solo rellena campos que siguen vacios (p. ej. la referencia
+        #    no trae plata de ene-2024 a mar-2025), sin cuestionarla.
+        hay_vacios = any(r.get(f) is None for r in rows.values() for f in PRECIOUS_FIELDS)
+        if not ref_hasta or end_str > ref_hasta or hay_vacios:
+            a, usada = verificar_sdbullion(rows, start_str, end_str, verificados,
+                                           solo_rellenar_hasta=ref_hasta)
             ajustes += a
             if usada:
                 fuentes_prec.add('sdbullion')
@@ -1173,7 +1179,7 @@ def generate_excel():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("STH Prices API Server v4.3.1")
+    print("STH Prices API Server v4.3.2")
     print("=" * 50)
     print("Puerto: 8080")
     print("URL: http://localhost:8080")
